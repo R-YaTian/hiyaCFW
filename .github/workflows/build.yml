@@ -20,13 +20,15 @@ jobs:
     name: Build with Docker using devkitARM
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
         with:
           submodules: recursive
       - name: Install tools
         run: |
           sudo apt-get update
           sudo apt-get install p7zip-full python -y
+      - name: Silence all git safe directory warnings
+        run: git config --system --add safe.directory '*'
       - name: Build
         id: build
         run: |
@@ -36,6 +38,7 @@ jobs:
         run: |
           mkdir hiyaCFW
           cp hiya.dsi hiyaCFW
+          cp arm9/include/version.h hiyaCFW
           7z a hiyaCFW.7z hiyaCFW
       - name: Pack 7z for release
         if: ${{ startsWith(github.ref, 'refs/tags') }}
@@ -45,7 +48,7 @@ jobs:
           7z a template.7z "for SDNAND SD card"
           mv template.7z hiyaCFW.7z
       - name: Publish build to GH Actions
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@main
         with:
           path: hiyaCFW.7z
           name: build
@@ -53,12 +56,12 @@ jobs:
   # Only run this for non-PR jobs.
   publish_build:
     runs-on: ubuntu-latest
-    name: Publish build to TWLBot/Builds
+    name: Publish build to release
     if: ${{ success() && !startsWith(github.ref, 'refs/pull') }}
     needs: build
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@main
         with:
           name: build
           path: build
