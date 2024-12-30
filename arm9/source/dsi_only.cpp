@@ -47,7 +47,7 @@ void dsiOnly(void) {
 	dsiOnly_setBrightness(0, 0);
 	dsiOnly_setBrightness(1, 0);
 
-	while (1) {
-		swiWaitForVBlank();
+	while (pmMainLoop()) {
+		threadWaitForVBlank();
 	}
 }

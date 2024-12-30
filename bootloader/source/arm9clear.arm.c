@@ -23,7 +23,6 @@ Modified by Chishm:
 void __attribute__ ((long_call)) __attribute__((naked)) __attribute__((noreturn)) resetMemory2_ARM9 (void) 
 {
  	register int i;
-	// int reg;
   
 	//clear out ARM9 DMA channels
 	for (i=0; i<4; i++) {
@@ -32,7 +31,6 @@ void __attribute__ ((long_call)) __attribute__((naked)) __attribute__((noreturn)
 		DMA_DEST(i) = 0;
 		TIMER_CR(i) = 0;
 		TIMER_DATA(i) = 0;
-		// for(reg=0; reg<0x1c; reg+=4)*((u32*)(0x04004104 + ((i*0x1c)+reg))) = 0;//Reset NDMA.
 	}
 
 	VRAM_CR = (VRAM_CR & 0xffff0000) | 0x00008080 ;
@@ -49,6 +47,8 @@ void __attribute__ ((long_call)) __attribute__((naked)) __attribute__((noreturn)
 
 	VRAM_A_CR = 0;
 	VRAM_B_CR = 0;
+    // Don't mess with the ARM7's VRAM
+    // VRAM_C_CR = 0;
 	VRAM_D_CR = 0;
 	VRAM_E_CR = 0;
 	VRAM_F_CR = 0;
@@ -56,9 +56,9 @@ void __attribute__ ((long_call)) __attribute__((naked)) __attribute__((noreturn)
 	VRAM_H_CR = 0;
 	VRAM_I_CR = 0;
 	REG_POWERCNT  = 0x820F;
+
 	//set shared ram to ARM7
 	WRAM_CR = 0x03;
-	// REG_EXMEMCNT = 0xE880;
 
 	// Return to passme loop
 	*((vu32*)0x02FFFE04) = (u32)0xE59FF018;		// ldr pc, 0x02FFFE24
@@ -70,33 +70,6 @@ void __attribute__ ((long_call)) __attribute__((naked)) __attribute__((noreturn)
 	);
 	while(1);
 }
-
-/*
-void __attribute__ ((long_call)) __attribute__((naked)) __attribute__((noreturn)) initMBK_ARM9 (void) 
-{
-
-	*((vu32*)REG_MBK1)=0x8C888480;
-	*((vu32*)REG_MBK2)=0x8D898581;
-	*((vu32*)REG_MBK3)=0x9C999591;
-	*((vu32*)REG_MBK4)=0x8D898581;
-	*((vu32*)REG_MBK5)=0x9D999591;
-
-	REG_MBK6=0x080037C0;
-	REG_MBK7=0x07C03000;
-	REG_MBK8=0x00003000;
-	REG_MBK9=0xFF000000;
-
-	// Return to passme loop
-	*((vu32*)0x02FFFE04) = (u32)0xE59FF018;		// ldr pc, 0x02FFFE24
-	*((vu32*)0x02FFFE24) = (u32)0x02FFFE04;		// Set ARM9 Loop address
-
-	asm volatile(
-		"\tbx %0\n"
-		: : "r" (0x02FFFE04)
-	);
-	while(1);
-}
-*/
 
 /*-------------------------------------------------------------------------
 startBinary_ARM9
@@ -107,10 +80,6 @@ Modified by Chishm:
 --------------------------------------------------------------------------*/
 void __attribute__ ((long_call)) __attribute__((noreturn)) __attribute__((naked)) startBinary_ARM9 (void)
 {
-	// REG_SCFG_CLK = 0x87;
-	// REG_SCFG_RST = 0x0001;
-	// REG_SCFG_MC = 0x0018;
-
 	REG_IME=0;
 	REG_EXMEMCNT = 0xE880;
 	// set ARM9 load address to 0 and wait for it to change again

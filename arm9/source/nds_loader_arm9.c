@@ -24,7 +24,7 @@
 #include <limits.h>
 
 #include <unistd.h>
-#include <slim.h>
+#include <fat.h>
 
 #include "load_bin.h"
 
@@ -65,6 +65,31 @@ static void vramcpy (void* dst, const void* src, int len)
 		*dst16++ = *src16++;
 	}
 }	
+
+static void resetSync(void)
+{
+    while ((REG_IPC_SYNC & 0x0f) != 1);
+    REG_IPC_SYNC = 0x100;
+    while ((REG_IPC_SYNC & 0x0f) != 0);
+    REG_IPC_SYNC = 0;
+}
+
+// Number of bits used to specify the channel of a packet
+#define FIFO_CHANNEL_BITS       4
+
+#define FIFO_NUM_CHANNELS       (1 << FIFO_CHANNEL_BITS)
+#define FIFO_CHANNEL_SHIFT      (32 - FIFO_CHANNEL_BITS)
+#define FIFO_CHANNEL_MASK       ((1 << FIFO_CHANNEL_BITS) - 1)
+
+// If this bit is set, the message is an address (0x02000000 - 0x02FFFFFF)
+#define FIFO_ADDRESSBIT_SHIFT   (FIFO_CHANNEL_SHIFT - 1)
+#define FIFO_ADDRESSBIT         (1 << FIFO_ADDRESSBIT_SHIFT)
+
+// If this bit is set, the message is an immediate value.
+#define FIFO_IMMEDIATEBIT_SHIFT (FIFO_ADDRESSBIT_SHIFT - 1)
+#define FIFO_IMMEDIATEBIT       (1 << FIFO_IMMEDIATEBIT_SHIFT)
+
+void swiSoftReset(void);
 
 int runNds (const void* loader, u32 loaderSize, u32 cluster, bool initDisc, int argc, const char** argv)
 {
@@ -129,15 +154,17 @@ int runNds (const void* loader, u32 loaderSize, u32 cluster, bool initDisc, int 
 	irqDisable(IRQ_ALL);
 
 	// Give the VRAM to the ARM7
-	VRAM_C_CR = VRAM_ENABLE | VRAM_C_ARM7_0x06000000;
+	VRAM_C_CR = VRAM_ENABLE | VRAM_C_ARM7_0x06000000;	
 	// Reset into a passme loop
 	REG_EXMEMCNT |= ARM7_OWNS_ROM | ARM7_OWNS_CARD;
-	
+
 	*((vu32*)0x02FFFFFC) = 0;
 	*((vu32*)0x02FFFE04) = (u32)0xE59FF018;
 	*((vu32*)0x02FFFE24) = (u32)0x02FFFE04;
 
-	resetARM7(0x06000000);
+	*((vu32 *)0x02FFFE34) = 0x06000000;
+    REG_IPC_FIFO_TX = FIFO_ADDRESSBIT | FIFO_IMMEDIATEBIT | 0x4000C;
+	resetSync();
 
 	swiSoftReset(); 
 	return true;

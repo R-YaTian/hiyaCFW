@@ -1,8 +1,9 @@
 #include <dirent.h>
 #include <nds.h>
-#include <slim.h>
+#include <fat.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "bios_decompress_callback.h"
 #include "fileOperations.h"
@@ -14,8 +15,6 @@
 
 #include "topLoad.h"
 #include "subLoad.h"
-// #include "topError.h"
-// #include "subError.h"
 
 #define CONSOLE_SCREEN_WIDTH 32
 #define CONSOLE_SCREEN_HEIGHT 24
@@ -158,40 +157,11 @@ int main( int argc, char **argv) {
 	extern void dsiOnly(void);
 	dsiOnly();
 
-	// defaultExceptionHandler();
+	bool fatInited = fatInitDefault();
 
-	/* scanKeys();
-	if ((keysHeld() & KEY_RIGHT) && (keysHeld() & KEY_A)) {
-		setupConsole();
+	pxiWaitRemote(PxiChannel_User0);
 
-		consoleInit(NULL, 1, BgType_Text4bpp, BgSize_T_256x256, 15, 0, false, true);
-		consoleClear();
-
-		iprintf("Please remove the SD Card and\n");
-		iprintf("insert the SD Card containing\n");
-		iprintf("hiyaCFW, then press A\n");
-		iprintf("to continue.");
-
-		// Prevent accidential presses
-		for (int i = 0; i < 60; i++) {
-			swiWaitForVBlank();
-		}
-
-		while (1) {
-			scanKeys();
-			if (keysHeld() & KEY_A) break;
-			swiWaitForVBlank();
-		}
-
-		for (int i = 0; i < 24; i++) {
-			swiWaitForVBlank();
-		}
-	}
-
-	*(u32*)0x0CFFFD0C = 0x54534453; // 'SDST'
-	while (*(u32*)0x0CFFFD0C != 0) { swiDelay(100); } */
-
-	u32 sdIrqStatus = fifoGetValue32(FIFO_USER_01);
+	u32 sdIrqStatus = pxiSendAndReceive(PxiChannel_User0, 1);
 	if ((sdIrqStatus & BIT(5)) != 0 && (sdIrqStatus & BIT(7)) == 0) {
 		setupConsole();
 
@@ -204,19 +174,11 @@ int main( int argc, char **argv) {
 		iprintf("write-lock switch up, re-insert\n");
 		iprintf("the SD card, then try again.");
 
-		while (1)
+		while (pmMainLoop())
 			swiWaitForVBlank();
 	}
 
-	if (!fatInitDefault()) {
-		/* bootSplashInit();
-
-		// Display Error Screen
-		swiDecompressLZSSVram((void*)topErrorBitmap, BG_GFX, 0, &decompressBiosCallback);
-		swiDecompressLZSSVram((void*)subErrorBitmap, BG_GFX_SUB, 0, &decompressBiosCallback);
-		tonccpy(&BG_PALETTE[0], topErrorPal, topErrorPalLen);
-		tonccpy(&BG_PALETTE_SUB[0], subErrorPal, subErrorPalLen); */
-
+	if (!fatInited) {
 		setupConsole();
 
 		consoleInit(NULL, 1, BgType_Text4bpp, BgSize_T_256x256, 15, 0, false, true);
@@ -224,11 +186,11 @@ int main( int argc, char **argv) {
 
 		iprintf("FAT init failed!");
 
-		while (1)
+		while (pmMainLoop())
 			swiWaitForVBlank();
 	}
 
-	if ((access("sd:/", F_OK) != 0) && (access("fat:/", F_OK) == 0)) {
+	if (access("sd:/", F_OK) != 0) {
 		setupConsole();
 
 		consoleInit(NULL, 1, BgType_Text4bpp, BgSize_T_256x256, 15, 0, false, true);
@@ -237,7 +199,7 @@ int main( int argc, char **argv) {
 		iprintf("hiyaCFW is not compatible\n");
 		iprintf("with flashcards!");
 
-		while (1)
+		while (pmMainLoop())
 			swiWaitForVBlank();
 	}
 
@@ -260,7 +222,7 @@ int main( int argc, char **argv) {
 		consoleInit(NULL, 1, BgType_Text4bpp, BgSize_T_256x256, 15, 0, false, true);
 		consoleClear();
 
-		while (1)
+		while (pmMainLoop())
 			swiWaitForVBlank();
 	}
 
@@ -294,7 +256,7 @@ int main( int argc, char **argv) {
 		int pressed = 0;
 		bool menuprinted = true;
 
-		while (1) {
+		while (pmMainLoop()) {
 			if (menuprinted) {
 				consoleInit(NULL, 0, BgType_Text4bpp, BgSize_T_256x256, 15, 0, true, true);
 				consoleClear();
@@ -533,13 +495,9 @@ int main( int argc, char **argv) {
 	}
 
 	if (!dsiSplash) {
-		fifoSendValue32(FIFO_USER_03, 1);
-		// Tell Arm7 to check FIFO_USER_03 code
-		fifoSendValue32(FIFO_USER_04, 1);
+		pxiSendAndReceive(PxiChannel_User0, 0);
 		// Small delay to ensure arm7 has time to write i2c stuff
-		for (int i = 0; i < 1*3; i++) { swiWaitForVBlank(); }
-	} else {
-		fifoSendValue32(FIFO_USER_04, 1);
+		for (int i = 0; i < 1*3; i++) { threadWaitForVBlank(); }
 	}
 
 	char tmdpath[256];
@@ -578,7 +536,6 @@ int main( int argc, char **argv) {
 		consoleClear();
 	}
 
-	while (1)
+	while (pmMainLoop())
 		swiWaitForVBlank();
 }
-
